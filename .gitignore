@@ -1,0 +1,27 @@
+# Editor temporary files
+*~
+*.swp
+*.swo
+
+# results of make
+Makefile
+config.cache
+config.h
+config.log
+config.status
+man/Makefile
+man/logsurfer.1
+man/logsurfer.conf.4
+src/Makefile
+src/context.o
+src/exec.o
+src/exit.o
+src/logsurfer
+src/logsurfer.o
+src/readcf.o
+src/readline.o
+src/regex.o
+src/report.o
+src/rule.o
+src/str_util.o
+stamp-h
