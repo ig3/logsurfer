@@ -1,0 +1,33 @@
+The initial state of this code was downloaded from
+
+https://sourceforge.net/projects/logsurfer/
+
+which indicates a BSD license.
+
+The code itself doesn't indicate a license but does indicate that one is free to distribute
+source or binaries. It appears to be silent on the issue of distributing changes, though
+perhaps distributing patches would be OK.
+
+The same version (1.8) is available as a source RPM with the following spec file contents:
+
+#
+# spec file for package logsurfer (Version 1.5a)
+#
+# Copyright (c) 2002 SuSE Linux AG, Nuernberg, Germany.
+# This file and all modifications and additions to the pristine
+# package are under the same license as the package itself.
+#
+# please send bugfixes or comments to feedback@suse.de.
+#
+
+
+Name:           logsurfer
+Version:        1.8
+Release:        8%{?dist}
+# License:        X11/MIT     # this was the old license, not sure if just MIT is right
+# See BNC 779005 - unresolved license issue.  Must be resolved prior to factory submission
+License:        MIT
+
+Terry's website (https://www.crypt.gen.nz/logsurfer/) says nothing about license.
+
+
