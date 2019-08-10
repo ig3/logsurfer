@@ -25,3 +25,6 @@ src/report.o
 src/rule.o
 src/str_util.o
 stamp-h
+man/podman.out.*.txt
+man/podman.out.*.txt
+
