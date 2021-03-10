@@ -24,7 +24,25 @@
 #include <time.h>
 #endif
 #endif
+#ifdef WITH_PCRE
+#define PCRE2_CODE_UNIT_WIDTH 8
+/* pcre2 returns matches in a different format than posix regex
+ * but it is easier to populate a structure like that of regex
+ * that to change all the code to use pcre2's structure.
+ *
+ * Here the re_registers structure from posix regex is defined.
+ */
+typedef int regoff_t;
+struct re_registers {
+  unsigned num_regs;
+  regoff_t *start;
+  regoff_t *end;
+};
+/* define posix regex RE_NREGS, as it is used through the code */
+#define RE_NREGS 30
+#else
 #include "regex.h"
+#endif
 
 #ifndef MAXPATHLEN
 #define MAXPATHLEN 1024

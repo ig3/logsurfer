@@ -44,12 +44,15 @@ char *strchr();
 #include <malloc.h>
 #endif
 
-
 /* local includes */
 
 #include "logsurfer.h"
 #include "globals.h"
+#ifdef WITH_PCRE
+#include <pcre2.h>
+#else
 #include "regex.h"
+#endif
 #include "str_util.h"
 #include "report.h"
 #include "exec.h"
@@ -84,6 +87,11 @@ create_context()
 	new_context->next=NULL;
 	new_context->previous=NULL;
 
+#ifdef WITH_PCRE
+  new_context->match_data=NULL;
+  new_context->match_not_data=NULL;
+#endif
+
 	return(new_context);
 }
 
@@ -97,6 +105,11 @@ open_context(context_def)
 {
 	struct context		*new_context;
 	char			*src;
+
+#ifdef WITH_PCRE
+    int errornumber;        /* PCRE regex parsing error number */
+    PCRE2_SIZE erroroffset; /* PCRE regex parsing error location */
+#endif
 
 #ifdef DEBUG
 (void) printf("opening new context: ***%s***\n", context_def);
@@ -125,6 +138,37 @@ open_context(context_def)
 		return;
 	}
 
+#ifdef WITH_PCRE
+    new_context->match_regex = pcre2_compile(
+        new_context->match_regex_str,
+        PCRE2_ZERO_TERMINATED,
+        0,
+        &errornumber,
+        &erroroffset,
+        NULL
+    );
+    if (new_context->match_regex == NULL) {
+        (void) fprintf(stderr, "error in match regex of rule: %s\n",
+            context_def);
+        PCRE2_UCHAR buffer[256];
+        pcre2_get_error_message(
+            errornumber,
+            buffer,
+            sizeof(buffer)
+        );
+        (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
+            new_context->match_regex_str, erroroffset, buffer);
+		destroy_context(new_context);
+		return;
+    }
+    new_context->match_data = pcre2_match_data_create_from_pattern(
+        new_context->match_regex, NULL);
+    if (new_context->match_data == NULL) {
+		(void) fprintf(stderr, "out of memory adding rule: %s\n", context_def);
+		destroy_context(new_context);
+		return;
+    }
+#else
 	/* get the match_regex */
 	if ( (new_context->match_regex=(struct re_pattern_buffer *)
 		malloc(sizeof(struct re_pattern_buffer))) == NULL ) {
@@ -144,6 +188,7 @@ open_context(context_def)
 		return;
 	}
 	new_context->match_regex->regs_allocated=REGS_FIXED;
+#endif
 
 	/* get the optional match_not_regex (the expresion that should *not* match) */
 	src=skip_spaces(src);
@@ -154,6 +199,37 @@ open_context(context_def)
 			destroy_context(new_context);
 			return;
 		}
+#ifdef WITH_PCRE
+        new_context->match_not_regex = pcre2_compile(
+            new_context->match_not_regex_str,
+            PCRE2_ZERO_TERMINATED,
+            0,
+            &errornumber,
+            &erroroffset,
+            NULL
+        );
+        if (new_context->match_not_regex == NULL) {
+            (void) fprintf(stderr, "error in match regex of rule: %s\n",
+                context_def);
+            PCRE2_UCHAR buffer[256];
+            pcre2_get_error_message(
+                errornumber,
+                buffer,
+                sizeof(buffer)
+            );
+            (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
+                new_context->match_not_regex_str, erroroffset, buffer);
+            destroy_context(new_context);
+            return;
+        }
+        new_context->match_not_data = pcre2_match_data_create_from_pattern(
+            new_context->match_not_regex, NULL);
+        if (new_context->match_not_data == NULL) {
+            (void) fprintf(stderr, "out of memory adding rule: %s\n", context_def);
+            destroy_context(new_context);
+            return;
+        }
+#else
 		if ( (new_context->match_not_regex=(struct re_pattern_buffer *)
 			malloc(sizeof(struct re_pattern_buffer))) == NULL ) {
 			(void) fprintf(stderr, "out of memory adding context: %s\n",
@@ -175,6 +251,7 @@ open_context(context_def)
 			return;
 		}
 		new_context->match_not_regex->regs_allocated=REGS_FIXED;
+#endif
 	}
 	else
 		src++;
@@ -350,6 +427,22 @@ destroy_context(this_context)
 	struct context	*this_context;
 {
 	destroy_body(this_context->body);
+#ifdef WITH_PCRE
+    /* match */
+    if ( this_context->match_regex_str != NULL )
+        (void) free(this_context->match_regex_str);
+    if ( this_context->match_regex != NULL )
+        pcre2_code_free(this_context->match_regex);
+    if ( this_context->match_data != NULL )
+        pcre2_match_data_free(this_context->match_data);
+    /* match not */
+    if ( this_context->match_not_regex_str != NULL )
+        (void) free(this_context->match_not_regex_str);
+    if ( this_context->match_not_regex != NULL )
+        pcre2_code_free(this_context->match_not_regex);
+    if ( this_context->match_not_data != NULL )
+        pcre2_match_data_free(this_context->match_not_data);
+#else
 	if ( this_context->match_regex_str != NULL )
 		(void) free(this_context->match_regex_str);
 	if ( this_context->match_regex != NULL ) {
@@ -362,6 +455,7 @@ destroy_context(this_context)
 		regfree(this_context->match_not_regex);
 		(void) free(this_context->match_not_regex);
 	}
+#endif
 	free_tokens(this_context->action_tokens);
 	(void) free(this_context);
 	return;

@@ -11,7 +11,6 @@
 #include <config.h>
 #endif
 
-
 /* system includes */
 
 #include <stdio.h>
@@ -83,7 +82,12 @@ int errno;
 
 #include "logsurfer.h"
 #include "globals.h"
+#ifdef WITH_PCRE
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include "pcre2.h"
+#else
 #include "regex.h"
+#endif
 #include "str_util.h"
 #include "context.h"
 #include "rule.h"
@@ -127,7 +131,16 @@ struct stat nstb;    /* Logfile attributes, used for -F option */
 
 /*
  * definitions for the regular expression matching routines
- *
+ */
+#ifdef WITH_PCRE
+PCRE2_SPTR pattern;     /* PCRE2_SPTR is a pointer to unsigned code */
+PCRE2_SPTR subject;     /* units of the appropriate width */
+PCRE2_SPTR name_table;
+pcre2_match_data *match_data;
+pcre2_match_data *match_data2;
+PCRE2_SIZE *ovector;
+#endif
+/*
  * we have an array with submatches and the number of valid submatches
  */
 struct re_registers regex_submatches;
@@ -159,6 +172,7 @@ process_logline()
 	struct context		*this_context;
 	struct rule		*this_rule, *this_rule_next;
 	int			check_stop=0;
+    int         i;
 
 	if ( logline[0] == '\0' )
 		return;
@@ -189,7 +203,21 @@ process_logline()
 	 * first try to store the logline in all matching contexts
 	 */
 	for ( this_context=all_contexts; this_context != NULL;
-		this_context=this_context->next)
+		this_context=this_context->next) {
+#ifdef WITH_PCRE
+        if (pcre2_match(this_context->match_regex, (PCRE2_SPTR)logline,
+                PCRE2_ZERO_TERMINATED, 0, 0, this_context->match_data, NULL) > 0) {
+            regex_submatches_num=pcre2_get_ovector_count(match_data);
+            ovector = pcre2_get_ovector_pointer(this_context->match_data);
+            for (i = 0; i < regex_submatches_num && i < RE_NREGS; i++) {
+                regex_submatches.start[i] = ovector[2*i];
+                regex_submatches.end[i] = ovector[2*i+1];
+            }
+            if ( this_context->match_not_regex != NULL) {
+                if (pcre2_match(this_context->match_not_regex,
+                    (PCRE2_SPTR)logline, PCRE2_ZERO_TERMINATED,
+                    0, 0, this_context->match_not_data, NULL) <= 0) {
+#else
 		if ( re_search(this_context->match_regex, logline, strlen(logline),
 			0, strlen(logline), &regex_submatches) >= 0 ) {
 			regex_submatches_num=this_context->match_regex->re_nsub;
@@ -197,19 +225,50 @@ process_logline()
 				if ( re_search(this_context->match_not_regex, logline,
 					strlen(logline), 0, strlen(logline),
 					&regex_notmatches) == -1 ) {
+#endif
 						add_to_context(this_context, logline_context);
 				}
 			}
 			else
 				add_to_context(this_context, logline_context);
 		}
+    }
 
 	/*
 	 * now check if there is a matching rule for this logline
 	 */
 	for ( this_rule=all_rules; this_rule != NULL ; ) {
 		/* check if the logline matches the first rgex */
-		if ( re_search(this_rule->match_regex, logline, strlen(logline),
+#ifdef WITH_PCRE
+        if ( pcre2_match(
+                this_rule->match_regex,
+                (PCRE2_SPTR)logline,
+                PCRE2_ZERO_TERMINATED,
+                0,
+                0,
+                this_rule->match_data,
+                NULL
+             ) > 0) {
+            regex_submatches_num=
+                pcre2_get_ovector_count(this_rule->match_data);
+            ovector = pcre2_get_ovector_pointer(this_rule->match_data);
+            for (i = 0; i < regex_submatches_num && i < RE_NREGS; i++) {
+                regex_submatches.start[i] = ovector[2*i];
+                regex_submatches.end[i] = ovector[2*i+1];
+            }
+            this_rule_next=this_rule->next;
+            if (this_rule->match_not_regex != NULL) {
+                if ( pcre2_match(
+                        this_rule->match_not_regex,
+                        (PCRE2_SPTR)logline,
+                        PCRE2_ZERO_TERMINATED,
+                        0,
+                        0,
+                        this_rule->match_not_data,
+                        NULL
+                     ) <= 0) {
+#else
+        if ( re_search(this_rule->match_regex, logline, strlen(logline),
 			0, strlen(logline), &regex_submatches) >= 0 ) {
 			regex_submatches_num=this_rule->match_regex->re_nsub;
 			this_rule_next=this_rule->next;
@@ -218,6 +277,7 @@ process_logline()
 				if ( re_search(this_rule->match_not_regex, logline,
 					strlen(logline), 0, strlen(logline),
 					&regex_notmatches) == -1 ) {
+#endif
 						check_stop=1;
 						if ( this_rule->do_continue == 0 )
 							this_rule_next=NULL;
@@ -234,14 +294,45 @@ process_logline()
 				/* check for the stop_regex */
 				if ( this_rule->stop_regex != NULL ) {
 
+#ifdef WITH_PCRE
+            if ( pcre2_match(
+                    this_rule->stop_regex,
+                    (PCRE2_SPTR)logline,
+                    PCRE2_ZERO_TERMINATED,
+                    0,
+                    0,
+                    this_rule->stop_data,
+                    NULL
+                 ) > 0) {
+                regex_submatches_num=
+                    pcre2_get_ovector_count(this_rule->stop_data);
+                ovector = pcre2_get_ovector_pointer(this_rule->stop_data);
+                for (i = 0; i < regex_submatches_num && i < RE_NREGS; i++) {
+                    regex_submatches.start[i] = ovector[2*i];
+                    regex_submatches.end[i] = ovector[2*i+1];
+                }
+                this_rule_next=this_rule->next;
+                if (this_rule->stop_not_regex != NULL) {
+                    if ( pcre2_match(
+                            this_rule->stop_not_regex,
+                            (PCRE2_SPTR)logline,
+                            PCRE2_ZERO_TERMINATED,
+                            0,
+                            0,
+                            this_rule->stop_not_data,
+                            NULL
+                         ) <= 0) {
+#else
 			if ( re_search(this_rule->stop_regex, logline, strlen(logline),
 				0, strlen(logline), &regex_submatches) >= 0 ) {
 				/* if we do have a not-match stop-regex test it */
 				if ( this_rule->stop_not_regex != NULL ) {
 					if ( re_search(this_rule->stop_not_regex,
 						logline, strlen(logline), 0,
-						strlen(logline), &regex_notmatches) == -1 )
+						strlen(logline), &regex_notmatches) == -1 ) {
+#endif
 						unlink_rule(this_rule);
+                    }
 				}
 				else
 					unlink_rule(this_rule);
@@ -378,9 +469,9 @@ main(argc, argv)
 	char		cf_filename[MAXPATHLEN]; /* configuration filename */
 	long		start_line=0;		/* startline within logfile */
 	int             start_at_end=0;         /* start at end of file     */
-	struct re_pattern_buffer *start_regex=NULL; /* regex for startline  */
 	int		do_follow=0;		/* follow the file?	*/
 	int		daemonize=0;		/* run in the background */
+    char    *opt_r_value=NULL;       /* value of -r options */
     int     write_pidfile=0;    /* flag to write PID to file */
 	FILE		*pidfile;		/* write pid info to file */
 
@@ -390,6 +481,13 @@ main(argc, argv)
 
 	struct sigaction	signal_info;	/* used by sigaction()	*/
 
+#ifdef WITH_PCRE
+    pcre2_code  *pcre_start_regex=NULL;
+    int         pcre_error_number;
+    PCRE2_SIZE  pcre_error_offset;
+#else
+	struct re_pattern_buffer *start_regex=NULL; /* regex for startline  */
+#endif
 
 	if ( (progname=strrchr(argv[0], '/')) == NULL )
 		progname=argv[0];
@@ -422,10 +520,12 @@ main(argc, argv)
 		(void) fprintf(stderr, "warning: %s started as root\n", progname);
 #endif
 
+#ifndef WITH_PCRE
 	/*
 	 * we want regular expression macthing like egrep
 	 */
 	re_syntax_options=RE_SYNTAX_POSIX_EGREP;
+#endif
 
 	/*
 	 * get memory to store the submatches for a regex-match
@@ -465,10 +565,18 @@ main(argc, argv)
 
 	while ( (opt = getopt(argc, argv, "efFc:d:Dl:p:r:st")) != EOF )
 		switch(opt) {
-                case 'e':
-		        /* start processing at the end of the log file */
-		        start_at_end=1;
-		        break;
+        case 'e':
+		    /* start processing at the end of the log file */
+			if ( opt_r_value != NULL ) {
+				(void) fprintf(stderr, "-r and -e can't be used together\n");
+				usage(progname);
+			}
+			if ( start_line != 0 ) {
+				(void) fprintf(stderr, "-l and -e can't be used together\n");
+				usage(progname);
+			}
+		    start_at_end=1;
+		    break;
 		case 'f':
 			/* set follow mode on */
 			do_follow=1;
@@ -491,7 +599,7 @@ main(argc, argv)
 			break;
 		case 'l':
 			/* start processing beginning with given line number */
-			if ( start_regex != NULL ) {
+			if ( opt_r_value != NULL ) {
 				(void) fprintf(stderr, "-l and -r can't be used together\n");
 				usage(progname);
 			}
@@ -515,22 +623,7 @@ main(argc, argv)
                 (void) fprintf(stderr, "-e and -r can't be used together\n");
                 usage(progname);
             }
-			if ( (start_regex=(struct re_pattern_buffer *)
-				malloc(sizeof(struct re_pattern_buffer))) == NULL ) {
-				(void) fprintf(stderr, "out of memory for start regex %s",
-					optarg);
-				exit(99);
-			}
-
-			start_regex->fastmap=(char *)malloc(256);
-			start_regex->translate=(char *) 0;
-			start_regex->buffer=NULL;
-			start_regex->allocated=0;
-			if ( re_compile_pattern(optarg, strlen(optarg), start_regex) != 0 ) {
-				(void) fprintf(stderr, "error in start-regex %s\n", optarg);
-				exit(5);
-			}
-			start_regex->regs_allocated=REGS_FIXED;
+            opt_r_value = optarg;
 			break;
 		case 's':
 			exit_silent=1;
@@ -604,22 +697,100 @@ main(argc, argv)
 			(void) free(logline);
 		}
 	}
-	else while ( start_regex != NULL ) {
-		if ( (logline=readline(logfile, &logline_buffer, &logline_buffer_size,
-			&logline_buffer_pos)) == NULL ) {
-			(void) fprintf(stderr,
-				"unable to find inputline for start_regex\n");
-			exit(7);
-		}
-		logline_num++;
-		if ( re_search(start_regex, logline, strlen(logline), 0,
-			strlen(logline), &regex_submatches) >= 0 ) {
-			regfree(start_regex);
-			(void) free(start_regex);
-			start_regex=NULL;
-			process_logline();
-		}
-		(void) free(logline);
+	else if (opt_r_value != NULL ) {
+
+#ifdef WITH_PCRE
+        pcre_start_regex = pcre2_compile(
+            (PCRE2_SPTR)opt_r_value,
+            PCRE2_ZERO_TERMINATED,
+            0,
+            &pcre_error_number,
+            &pcre_error_offset,
+            NULL
+        );
+        if (pcre_start_regex == NULL) {
+            PCRE2_UCHAR buffer[256];
+            pcre2_get_error_message(
+                pcre_error_number,
+                buffer,
+                sizeof(buffer)
+            );
+            (void) fprintf(
+                stderr,
+                "error in start-regex %s at offset %d: %s\n",
+                opt_r_value,
+                pcre_error_offset,
+                buffer
+            );
+            exit(5);
+        }
+        pcre2_match_data *match_data;
+        match_data = pcre2_match_data_create_from_pattern(
+            pcre_start_regex,
+            NULL
+        );
+#else
+        if ( (start_regex=(struct re_pattern_buffer *)
+            malloc(sizeof(struct re_pattern_buffer))) == NULL ) {
+            (void) fprintf(stderr, "out of memory for start regex %s",
+                optarg);
+            exit(99);
+        }
+        start_regex->fastmap=(char *)malloc(256);
+        start_regex->translate=(char *) 0;
+        start_regex->buffer=NULL;
+        start_regex->allocated=0;
+        if ( re_compile_pattern(opt_r_value, strlen(optarg), start_regex) != 0 ) {
+            (void) fprintf(stderr, "error in start-regex %s\n", optarg);
+            exit(5);
+        }
+        start_regex->regs_allocated=REGS_FIXED;
+#endif
+
+        while ( opt_r_value != NULL ) {
+            (void) fprintf(stderr, "opt_r_value is not null: %s\n", opt_r_value);
+            if ( (logline=readline(logfile, &logline_buffer, &logline_buffer_size,
+                &logline_buffer_pos)) == NULL ) {
+                (void) fprintf(stderr,
+                    "unable to find inputline for start_regex\n");
+                exit(7);
+            }
+            logline_num++;
+#ifdef WITH_PCRE
+            int rc = pcre2_match(
+                pcre_start_regex,       /* compiled regex */
+                (PCRE2_SPTR)logline,    /* string to search */
+                strlen(logline),        /* length of string to match */
+                0,                      /* starting offset */
+                0,                      /* default options */
+                match_data,             /* block for storing the result */
+                NULL
+            );
+            fprintf(stderr,
+                "rc = %d, line: %s\n",
+                rc,
+                logline
+            );
+            if (rc > 0) {
+                fprintf(stderr, "got one\n");
+                pcre2_match_data_free(match_data);
+                pcre2_code_free(pcre_start_regex);
+                pcre_start_regex=NULL;
+                process_logline();
+                break;
+            }
+#else
+            if ( re_search(start_regex, logline, strlen(logline), 0,
+                strlen(logline), &regex_submatches) >= 0 ) {
+                regfree(start_regex);
+                (void) free(start_regex);
+                start_regex=NULL;
+                process_logline();
+                break;
+            }
+#endif
+            (void) free(logline);
+        }
 	}
 
 	signal_info.sa_handler=dump_data;

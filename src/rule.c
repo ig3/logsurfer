@@ -53,13 +53,21 @@ char *strchr();
 
 #include "logsurfer.h"
 #include "globals.h"
+#ifdef WITH_PCRE
+#include <pcre2.h>
+#else
 #include "regex.h"
+#endif
 #include "str_util.h"
 #include "report.h"
 #include "context.h"
 #include "exec.h"
 #include "rule.h"
 
+#ifdef WITH_PCRE
+int errornumber;        /* PCRE regex parsing error number */
+PCRE2_SIZE erroroffset; /* PCRE regex parsing error location */
+#endif
 
 /*
  * malloc() and initialize a new rule
@@ -86,6 +94,12 @@ create_rule()
 	result->action_body=NULL;
 	result->next=NULL;
 	result->previous=NULL;
+#ifdef WITH_PCRE
+    result->match_data=NULL;
+    result->match_not_data=NULL;
+    result->stop_data=NULL;
+    result->stop_not_data=NULL;
+#endif
 
 	return(result);
 }
@@ -101,6 +115,48 @@ destroy_rule(rule_ptr)
 	if ( rule_ptr == NULL )
 		return;
 
+#ifdef WITH_PCRE
+    /* match */
+	if ( rule_ptr->match_regex_str != NULL ) {
+		(void) free(rule_ptr->match_regex_str);
+    }
+    if ( rule_ptr->match_regex != NULL ) {
+        pcre2_code_free(rule_ptr->match_regex);
+    }
+    if (rule_ptr->match_data != NULL ) {
+        pcre2_match_data_free(rule_ptr->match_data);
+    }
+    /* match not */
+	if ( rule_ptr->match_not_regex_str != NULL ) {
+		(void) free(rule_ptr->match_not_regex_str);
+    }
+    if ( rule_ptr->match_not_regex != NULL ) {
+        pcre2_code_free(rule_ptr->match_not_regex);
+    }
+    if (rule_ptr->match_not_data != NULL ) {
+        pcre2_match_data_free(rule_ptr->match_not_data);
+    }
+    /* stop */
+	if ( rule_ptr->stop_regex_str != NULL ) {
+		(void) free(rule_ptr->stop_regex_str);
+    }
+    if ( rule_ptr->stop_regex != NULL ) {
+        pcre2_code_free(rule_ptr->stop_regex);
+    }
+    if (rule_ptr->stop_data != NULL ) {
+        pcre2_match_data_free(rule_ptr->stop_data);
+    }
+    /* stop not */
+	if ( rule_ptr->stop_not_regex_str != NULL ) {
+		(void) free(rule_ptr->stop_not_regex_str);
+    }
+    if ( rule_ptr->stop_not_regex != NULL ) {
+        pcre2_code_free(rule_ptr->stop_not_regex);
+    }
+    if (rule_ptr->stop_not_data != NULL ) {
+        pcre2_match_data_free(rule_ptr->stop_not_data);
+    }
+#else
 	if ( rule_ptr->match_regex != NULL ) {
 		regfree(rule_ptr->match_regex);
 		(void) free(rule_ptr->match_regex);
@@ -126,6 +182,7 @@ destroy_rule(rule_ptr)
 	}
 	if ( rule_ptr->stop_not_regex_str != NULL )
 		(void) free(rule_ptr->stop_not_regex_str);
+#endif
 
 	if ( rule_ptr->action_body != NULL )
 		(void) free(rule_ptr->action_body);
@@ -193,6 +250,37 @@ parse_rule(input_line)
 		destroy_rule(new_rule);
 		return(NULL);
 	}
+#ifdef WITH_PCRE
+    new_rule->match_regex = pcre2_compile(
+        new_rule->match_regex_str,
+        PCRE2_ZERO_TERMINATED,
+        0,
+        &errornumber,
+        &erroroffset,
+        NULL
+    );
+    if (new_rule->match_regex == NULL) {
+        (void) fprintf(stderr, "error in stop_regex of rule: %s\n",
+            input_line);
+        PCRE2_UCHAR buffer[256];
+        pcre2_get_error_message(
+            errornumber,
+            buffer,
+            sizeof(buffer)
+        );
+        (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
+            new_rule->match_regex_str, erroroffset, buffer);
+		destroy_rule(new_rule);
+		return(NULL);
+    }
+    new_rule->match_data = pcre2_match_data_create_from_pattern(
+        new_rule->match_regex, NULL);
+    if (new_rule->match_data == NULL) {
+		(void) fprintf(stderr, "out of memory adding rule: %s\n", input_line);
+		destroy_rule(new_rule);
+		return(NULL);
+    }
+#else
 	if ( (new_rule->match_regex=(struct re_pattern_buffer *)
 		malloc(sizeof(struct re_pattern_buffer))) == NULL ) {
 		(void) fprintf(stderr, "out of memory adding rule: %s\n", input_line);
@@ -211,6 +299,7 @@ parse_rule(input_line)
 		return(NULL);
 	}
 	new_rule->match_regex->regs_allocated=REGS_FIXED;
+#endif
 
 	/* get the option match_not_regex (the expresion that should *not* match) */
 	help_ptr=skip_spaces(help_ptr);
@@ -220,6 +309,37 @@ parse_rule(input_line)
 			destroy_rule(new_rule);
 			return(NULL);
 		}
+#ifdef WITH_PCRE
+        new_rule->match_not_regex = pcre2_compile(
+            new_rule->match_not_regex_str,
+            PCRE2_ZERO_TERMINATED,
+            0,
+            &errornumber,
+            &erroroffset,
+            NULL
+        );
+        if (new_rule->match_not_regex == NULL) {
+			(void) fprintf(stderr, "error in stop_regex of rule: %s\n",
+                input_line);
+            PCRE2_UCHAR buffer[256];
+            pcre2_get_error_message(
+                errornumber,
+                buffer,
+                sizeof(buffer)
+            );
+            (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
+                new_rule->match_not_regex_str, erroroffset, buffer);
+            destroy_rule(new_rule);
+            return(NULL);
+        }
+        new_rule->match_not_data = pcre2_match_data_create_from_pattern(
+            new_rule->match_not_regex, NULL);
+        if (new_rule->match_not_data == NULL) {
+            (void) fprintf(stderr, "out of memory adding rule: %s\n", input_line);
+            destroy_rule(new_rule);
+            return(NULL);
+        }
+#else
 		if ( (new_rule->match_not_regex=(struct re_pattern_buffer *)
 			malloc(sizeof(struct re_pattern_buffer))) == NULL ) {
 			(void) fprintf(stderr, "out of memory adding rule: %s\n", input_line);
@@ -239,6 +359,7 @@ parse_rule(input_line)
 			return(NULL);
 		}
 		new_rule->match_not_regex->regs_allocated=REGS_FIXED;
+#endif
 	}
 	else
 		help_ptr++;
@@ -251,6 +372,37 @@ parse_rule(input_line)
 			destroy_rule(new_rule);
 			return(NULL);
 		}
+#ifdef WITH_PCRE
+        new_rule->stop_regex = pcre2_compile(
+            new_rule->stop_regex_str,
+            PCRE2_ZERO_TERMINATED,
+            0,
+            &errornumber,
+            &erroroffset,
+            NULL
+        );
+        if (new_rule->stop_regex == NULL) {
+			(void) fprintf(stderr, "error in stop_regex of rule: %s\n",
+                input_line);
+            PCRE2_UCHAR buffer[256];
+            pcre2_get_error_message(
+                errornumber,
+                buffer,
+                sizeof(buffer)
+            );
+            (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
+                new_rule->stop_regex_str, erroroffset, buffer);
+            destroy_rule(new_rule);
+            return(NULL);
+        }
+        new_rule->stop_data = pcre2_match_data_create_from_pattern(
+            new_rule->stop_regex, NULL);
+        if (new_rule->stop_data == NULL) {
+            (void) fprintf(stderr, "out of memory adding rule: %s\n", input_line);
+            destroy_rule(new_rule);
+            return(NULL);
+        }
+#else
 		if ( (new_rule->stop_regex=(struct re_pattern_buffer *)
 			malloc(sizeof(struct re_pattern_buffer))) == NULL ) {
 			(void) fprintf(stderr, "out of memory adding rule: %s\n", input_line);
@@ -269,6 +421,7 @@ parse_rule(input_line)
 			return(NULL);
 		}
 		new_rule->stop_regex->regs_allocated=REGS_FIXED;
+#endif
 	}
 	else
 		help_ptr++;
@@ -281,6 +434,37 @@ parse_rule(input_line)
 			destroy_rule(new_rule);
 			return(NULL);
 		}
+#ifdef WITH_PCRE
+        new_rule->stop_not_regex = pcre2_compile(
+            new_rule->stop_not_regex_str,
+            PCRE2_ZERO_TERMINATED,
+            0,
+            &errornumber,
+            &erroroffset,
+            NULL
+        );
+        if (new_rule->stop_not_regex == NULL) {
+			(void) fprintf(stderr, "error in stop_regex of rule: %s\n",
+                input_line);
+            PCRE2_UCHAR buffer[256];
+            pcre2_get_error_message(
+                errornumber,
+                buffer,
+                sizeof(buffer)
+            );
+            (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
+                new_rule->stop_not_regex_str, erroroffset, buffer);
+            destroy_rule(new_rule);
+            return(NULL);
+        }
+        new_rule->stop_not_data = pcre2_match_data_create_from_pattern(
+            new_rule->stop_not_regex, NULL);
+        if (new_rule->stop_not_data == NULL) {
+            (void) fprintf(stderr, "out of memory adding rule: %s\n", input_line);
+            destroy_rule(new_rule);
+            return(NULL);
+        }
+#else
 		if ( (new_rule->stop_not_regex=(struct re_pattern_buffer *)
 			malloc(sizeof(struct re_pattern_buffer))) == NULL ) {
 			(void) fprintf(stderr, "out of memory adding rule: %s\n", input_line);
@@ -300,11 +484,12 @@ parse_rule(input_line)
 			return(NULL);
 		}
 		new_rule->stop_not_regex->regs_allocated=REGS_FIXED;
+#endif
 	}
 	else
 		help_ptr++;
 
-	/* get the optinal timeout value */
+	/* get the optional timeout value */
 	help_ptr=skip_spaces(help_ptr);
 	new_rule->timeout=atol(help_ptr);
 	while ( *help_ptr != '\0' && !isspace(*help_ptr) )
@@ -317,7 +502,7 @@ parse_rule(input_line)
 			next_rule_timeout=new_rule->timeout;
 	}
 
-	/* check for the contiue keyword */
+	/* check for the continue keyword */
 	help_ptr=skip_spaces(help_ptr);
 	if (!strncasecmp(help_ptr, "continue", 8)) {
 		new_rule->do_continue=1;

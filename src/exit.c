@@ -78,7 +78,9 @@ char *strchr();
 
 #include "logsurfer.h"
 #include "globals.h"
+#ifndef WITH_PCRE
 #include "regex.h"
+#endif
 #include "str_util.h"
 #include "rule.h"
 #include "context.h"
