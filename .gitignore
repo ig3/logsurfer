@@ -3,6 +3,7 @@ Makefile
 config.h
 config.log
 config.status
+config.cache
 man/Makefile
 man/logsurfer.1
 man/logsurfer.conf.4

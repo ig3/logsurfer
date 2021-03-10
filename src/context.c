@@ -154,7 +154,7 @@ open_context(context_def)
             buffer,
             sizeof(buffer)
         );
-        (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
+        (void) fprintf(stderr, "in pattern %s at offset %lu: %s\n",
             new_context->match_regex_str, erroroffset, buffer);
 		destroy_context(new_context);
 		return;
@@ -215,7 +215,7 @@ open_context(context_def)
                 buffer,
                 sizeof(buffer)
             );
-            (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
+            (void) fprintf(stderr, "in pattern %s at offset %lu: %s\n",
                 new_context->match_not_regex_str, erroroffset, buffer);
             destroy_context(new_context);
             return;
@@ -726,7 +726,7 @@ struct context  *this_context;{
 	  for( pos=*cmd_string, tp=tempstr ; *pos ; pos++ ){
 	    if( *pos == '$' && ( pos == *cmd_string || *(pos-1) != '\\' ) ){
               if( !strncmp(pos+1,"lines",5) ){
-                tp += sprintf(tp,"%d",this_context->lines);
+                tp += sprintf(tp,"%ld",this_context->lines);
 		pos += 5;
 		replacements++;
               } else {
