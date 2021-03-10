@@ -763,11 +763,6 @@ main(argc, argv)
                 match_data,             /* block for storing the result */
                 NULL
             );
-            fprintf(stderr,
-                "rc = %d, line: %s\n",
-                rc,
-                logline
-            );
             if (rc > 0) {
                 pcre2_code_free(pcre_start_regex);
                 pcre_start_regex=NULL;
