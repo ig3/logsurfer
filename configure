@@ -622,7 +622,6 @@ ac_includes_default="\
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 retype
-xxxtest
 etcdir
 ALLOCA
 EGREP
@@ -1311,8 +1310,7 @@ Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-etcdir=PATH      Directory for logsurfer.conf \/usr/local/etc\
-  --with-pcre             enable support for Perl Compatible Regular
-                          Expressions
+  --without-pcre          use posix/egrep style regular expressions
 
 
 Some influential environment variables:
@@ -4145,10 +4143,15 @@ fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $with_pcre" >&5
 $as_echo "$with_pcre" >&6; }
-if test "x$with_pcre" = "xyes"; then :
+if test "x$with_pcre" = "xno"; then :
 
-  a=0
-  for ac_header in pcre2posix.h
+    retype="posix"
+
+
+else
+
+    a=0
+    for ac_header in pcre2posix.h
 do :
   ac_fn_c_check_header_mongrel "$LINENO" "pcre2posix.h" "ac_cv_header_pcre2posix_h" "$ac_includes_default"
 if test "x$ac_cv_header_pcre2posix_h" = xyes; then :
@@ -4162,7 +4165,7 @@ fi
 
 done
 
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pcre2_compile_8 in -lpcre2-8" >&5
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pcre2_compile_8 in -lpcre2-8" >&5
 $as_echo_n "checking for pcre2_compile_8 in -lpcre2-8... " >&6; }
 if ${ac_cv_lib_pcre2_8_pcre2_compile_8+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -4210,28 +4213,17 @@ else
 fi
 
 
-  if test $a == 0
-  then
+    if test $a == 0
+    then
 
 $as_echo "#define WITH_PCRE 1" >>confdefs.h
 
-    xxxtest="PCRE"
+      retype="pcre"
 
-    retype="pcre"
+    else
+      retype="posix"
 
-  else
-    xxxtest="POSIX"
-
-    retype="posix"
-
-  fi
-
-else
-
-  xxxtest="without pcre"
-
-  retype="posix"
-
+    fi
 
 fi
 ac_config_files="$ac_config_files Makefile src/Makefile man/Makefile"

@@ -51,22 +51,22 @@ AC_SUBST(etcdir)
 dnl Check for --with-etcdir.
 AC_MSG_CHECKING(pcre)
 AC_ARG_WITH([pcre],
-  AS_HELP_STRING([--with-pcre], [enable support for Perl Compatible Regular Expressions])
+  AS_HELP_STRING([--without-pcre], [use posix/egrep style regular expressions])
 )
 AC_MSG_RESULT($with_pcre)
-AS_IF([test "x$with_pcre" = "xyes"], [
-  a=0
-  AC_CHECK_HEADERS(pcre2posix.h, [], [a=1])
-  AC_CHECK_LIB([pcre2-8],pcre2_compile_8, [], [a=1])
-
-  if test $a == 0
-  then
-    AC_DEFINE(WITH_PCRE, [1], [Build with PCRE support])
-    AC_SUBST(retype, ["pcre"])
-  else
+AS_IF([test "x$with_pcre" = "xno"], [
     AC_SUBST(retype, ["posix"])
-  fi
-], [
-  AC_SUBST(retype, ["posix"])
+  ], [
+    a=0
+    AC_CHECK_HEADERS(pcre2posix.h, [], [a=1])
+    AC_CHECK_LIB([pcre2-8],pcre2_compile_8, [], [a=1])
+
+    if test $a == 0
+    then
+      AC_DEFINE(WITH_PCRE, [1], [Build with PCRE support])
+      AC_SUBST(retype, ["pcre"])
+    else
+      AC_SUBST(retype, ["posix"])
+    fi
 ])
 AC_OUTPUT(Makefile src/Makefile man/Makefile, echo timestamp > stamp-h)

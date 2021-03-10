@@ -1,3 +1,8 @@
+Version 1.8-pcre
+	Ian Goodacre Ian.Goodacre@xtra.co.nz:
+	+ Use Perl Compatible Regular Expressions (PCRE) from library
+	  libpcre2-8.
+
 Version 1.8
 	Kerry Thompson kerry@crypt.gen.nz:
 	+ fixed double free() in exec.c/prepare_exec(), thanks to reports

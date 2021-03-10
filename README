@@ -1,24 +1,37 @@
 Logsurfer
 =========
 
-This is Logsurfer - the real-time log monitoring and alerting tool.
+This is not Logsurfer - the real-time log monitoring and alerting tool.
 
-Many enhancing features have been added to this version of Logsurfer,
-refer to the ChangeLog file in this release for details.
+This is a fork of logsurfer 1.8 from https://crypt.gen.nz/logsurfer/,
+which uses the PCRE regular expression library rather than the GNU regex
+library used by logsurfer 1.8.
 
-Refer to Logsurfer page at:
+This fork is experimental. Use it at your own risk.
+
+Many enhancing features had been added to version 1.8 of Logsurfer.
+Refer to the ChangeLog file in this release for details.
+
+For the version of logsurfer that this version was forked from, 
+refer to Logsurfer page at:
 	  http://www.crypt.gen.nz/logsurfer
 
+While this version can be built with the original GNU regex routines
+by running configure with option --without-pcre, it would make more
+sense to use the original from https://crypt.gen.nz/logsufer/, if you
+want GNU regex regular expressions.
 
 General Comments:
 =================
 
-To provide one simple and generic interface to regular expressions it
-was necessary to use a portable regex-library. Logsurfer uses the GNU
-regex library (version 0.12). To simplify installation and to use one
-"configure" command for the complete package the regex.[ch] files were
-integrated in the logsurfer source directory. For more information
-read the README file in the regex directory.
+This fork of logsurfer 1.8 uses Perl Compatible Regular Expressions
+from the PCRE library (http://www.pcre.org/) by default. While you
+can revert to posix/egrep regular expressions by configuring with
+option --without-pcre, it would probably be better to use the
+original version of logsurfer if you want posix/egrep style regular
+expressions.
+
+To get the original version, visit https://crypt.gen.nz/logsurfer/.
 
 The software was compiled and tested using the GNU-C-Compiler, but
 others should work without any problems.
@@ -79,6 +92,10 @@ If the location for the "logsurfer.conf" file is to be changed from
 its default in /usr/local/etc then use the --with-etcdir parameter to
 configure, e.g.:
   % ./configure --with-etcdir=/your/etc/dir
+
+To use PCRE regular expressions, rather than posix/egrep style, use the
+--with-pcre parameter to configure, e.g.:
+  % ./configure --with-pcre
 
 "Makefile" and "config.h" should be checked and, if need be, tweaked
 manually, before the compile. The compilation can be effected with:
@@ -156,17 +173,16 @@ Thanks to
 - Gregor Kopf of Recurity Labs GmbH and Jan Kohlrausch of DFN-CERT for
   highlighting a double free() bug
 - Mike Santos for patches to implement -D and -F
+- Kerry Thompson of crypt.gen.nz for maintaining a distribution of
+  logsurfer and online documentation for many years.
 
 Feedback:
 =========
 
-Please let us know if and what kind of problems occur when using the
-logsurfer package. It will help us fix the problems and help others
-avoid replicating them. Please send all bug reports and feedback to:
+Please let me know if and what kind of problems occur when using this
+version of the logsurfer package. It will help us fix the problems and
+help others avoid replicating them.
 
-	logsurfer@crypt.gen.nz
+Please send all bug reports and feedback to:
 
-or use the Sourceforge page for bug reports and feedback:
-
-   http://sourceforge.net/projects/logsurfer
-
+	Ian.Goodacre@xtra.co.nz
