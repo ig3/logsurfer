@@ -286,6 +286,10 @@ cleanup_memory()
 	}
 	new_argc=0;
 
+#ifdef WITH_PCRE
+    (void) pcre2_match_data_free(match_data);
+#endif
+
 	/* now there are only those parts from main() left... */
 	(void) free(regex_submatches.start);
 	(void) free(regex_submatches.end);

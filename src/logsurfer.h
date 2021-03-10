@@ -75,14 +75,12 @@ struct action_tokens {
 struct context {
 #ifdef WITH_PCRE
   pcre2_code *match_regex;      /* regular expression to match */
-  pcre2_match_data *match_data; /* corresponding match data */
 #else
 	struct re_pattern_buffer *match_regex;	/* regular expression to match	*/
 #endif
 	char			*match_regex_str;/* the ascii string of regex	*/
 #ifdef WITH_PCRE
   pcre2_code *match_not_regex;      /* regular expression to not match */
-  pcre2_match_data *match_not_data; /* corresponding match data */
 #else
 	struct re_pattern_buffer *match_not_regex;
 #endif
@@ -106,28 +104,24 @@ struct context {
 struct rule {
 #ifdef WITH_PCRE
   pcre2_code *match_regex;  /* compiled regex to match */
-  pcre2_match_data *match_data; /* corresponding match data */
 #else
 	struct re_pattern_buffer *match_regex;	/* regular expression to match	*/
 #endif
 	char			*match_regex_str;	/* for debugging	*/
 #ifdef WITH_PCRE
   pcre2_code *match_not_regex;  /* compiled regex to not match */
-  pcre2_match_data *match_not_data; /* corresponding match data */
 #else
 	struct re_pattern_buffer *match_not_regex;
 #endif
 	char			*match_not_regex_str;
 #ifdef WITH_PCRE
   pcre2_code *stop_regex;  /* compiled regex to delete rule */
-  pcre2_match_data *stop_data; /* corresponding match data */
 #else
 	struct re_pattern_buffer *stop_regex;	/* delete rule			*/
 #endif
 	char			*stop_regex_str;	/* for debugging	*/
 #ifdef WITH_PCRE
   pcre2_code *stop_not_regex;  /* compiled regex to not delete rule */
-  pcre2_match_data *stop_not_data; /* corresponding match data */
 #else
 	struct re_pattern_buffer *stop_not_regex;
 #endif

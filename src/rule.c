@@ -92,12 +92,6 @@ create_rule()
 	result->action_body=NULL;
 	result->next=NULL;
 	result->previous=NULL;
-#ifdef WITH_PCRE
-    result->match_data=NULL;
-    result->match_not_data=NULL;
-    result->stop_data=NULL;
-    result->stop_not_data=NULL;
-#endif
 
 	return(result);
 }
@@ -121,18 +115,12 @@ destroy_rule(rule_ptr)
     if ( rule_ptr->match_regex != NULL ) {
         pcre2_code_free(rule_ptr->match_regex);
     }
-    if (rule_ptr->match_data != NULL ) {
-        pcre2_match_data_free(rule_ptr->match_data);
-    }
     /* match not */
 	if ( rule_ptr->match_not_regex_str != NULL ) {
 		(void) free(rule_ptr->match_not_regex_str);
     }
     if ( rule_ptr->match_not_regex != NULL ) {
         pcre2_code_free(rule_ptr->match_not_regex);
-    }
-    if (rule_ptr->match_not_data != NULL ) {
-        pcre2_match_data_free(rule_ptr->match_not_data);
     }
     /* stop */
 	if ( rule_ptr->stop_regex_str != NULL ) {
@@ -141,18 +129,12 @@ destroy_rule(rule_ptr)
     if ( rule_ptr->stop_regex != NULL ) {
         pcre2_code_free(rule_ptr->stop_regex);
     }
-    if (rule_ptr->stop_data != NULL ) {
-        pcre2_match_data_free(rule_ptr->stop_data);
-    }
     /* stop not */
 	if ( rule_ptr->stop_not_regex_str != NULL ) {
 		(void) free(rule_ptr->stop_not_regex_str);
     }
     if ( rule_ptr->stop_not_regex != NULL ) {
         pcre2_code_free(rule_ptr->stop_not_regex);
-    }
-    if (rule_ptr->stop_not_data != NULL ) {
-        pcre2_match_data_free(rule_ptr->stop_not_data);
     }
 #else
 	if ( rule_ptr->match_regex != NULL ) {
@@ -271,13 +253,6 @@ parse_rule(input_line)
 		destroy_rule(new_rule);
 		return(NULL);
     }
-    new_rule->match_data = pcre2_match_data_create_from_pattern(
-        new_rule->match_regex, NULL);
-    if (new_rule->match_data == NULL) {
-		(void) fprintf(stderr, "out of memory adding rule: %s\n", input_line);
-		destroy_rule(new_rule);
-		return(NULL);
-    }
 #else
 	if ( (new_rule->match_regex=(struct re_pattern_buffer *)
 		malloc(sizeof(struct re_pattern_buffer))) == NULL ) {
@@ -327,13 +302,6 @@ parse_rule(input_line)
             );
             (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
                 new_rule->match_not_regex_str, erroroffset, buffer);
-            destroy_rule(new_rule);
-            return(NULL);
-        }
-        new_rule->match_not_data = pcre2_match_data_create_from_pattern(
-            new_rule->match_not_regex, NULL);
-        if (new_rule->match_not_data == NULL) {
-            (void) fprintf(stderr, "out of memory adding rule: %s\n", input_line);
             destroy_rule(new_rule);
             return(NULL);
         }
@@ -393,13 +361,6 @@ parse_rule(input_line)
             destroy_rule(new_rule);
             return(NULL);
         }
-        new_rule->stop_data = pcre2_match_data_create_from_pattern(
-            new_rule->stop_regex, NULL);
-        if (new_rule->stop_data == NULL) {
-            (void) fprintf(stderr, "out of memory adding rule: %s\n", input_line);
-            destroy_rule(new_rule);
-            return(NULL);
-        }
 #else
 		if ( (new_rule->stop_regex=(struct re_pattern_buffer *)
 			malloc(sizeof(struct re_pattern_buffer))) == NULL ) {
@@ -452,13 +413,6 @@ parse_rule(input_line)
             );
             (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
                 new_rule->stop_not_regex_str, erroroffset, buffer);
-            destroy_rule(new_rule);
-            return(NULL);
-        }
-        new_rule->stop_not_data = pcre2_match_data_create_from_pattern(
-            new_rule->stop_not_regex, NULL);
-        if (new_rule->stop_not_data == NULL) {
-            (void) fprintf(stderr, "out of memory adding rule: %s\n", input_line);
             destroy_rule(new_rule);
             return(NULL);
         }

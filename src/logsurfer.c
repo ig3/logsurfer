@@ -134,7 +134,6 @@ PCRE2_SPTR pattern;     /* PCRE2_SPTR is a pointer to unsigned code */
 PCRE2_SPTR subject;     /* units of the appropriate width */
 PCRE2_SPTR name_table;
 pcre2_match_data *match_data;
-pcre2_match_data *match_data2;
 PCRE2_SIZE *ovector;
 #endif
 /*
@@ -203,9 +202,9 @@ process_logline()
 		this_context=this_context->next) {
 #ifdef WITH_PCRE
         if (pcre2_match(this_context->match_regex, (PCRE2_SPTR)logline,
-                PCRE2_ZERO_TERMINATED, 0, 0, this_context->match_data, NULL) > 0) {
+                PCRE2_ZERO_TERMINATED, 0, 0, match_data, NULL) > 0) {
             regex_submatches_num=pcre2_get_ovector_count(match_data);
-            ovector = pcre2_get_ovector_pointer(this_context->match_data);
+            ovector = pcre2_get_ovector_pointer(match_data);
             for (i = 0; i < regex_submatches_num && i < RE_NREGS; i++) {
                 regex_submatches.start[i] = ovector[2*i];
                 regex_submatches.end[i] = ovector[2*i+1];
@@ -213,7 +212,7 @@ process_logline()
             if ( this_context->match_not_regex != NULL) {
                 if (pcre2_match(this_context->match_not_regex,
                     (PCRE2_SPTR)logline, PCRE2_ZERO_TERMINATED,
-                    0, 0, this_context->match_not_data, NULL) <= 0) {
+                    0, 0, match_data, NULL) <= 0) {
 #else
 		if ( re_search(this_context->match_regex, logline, strlen(logline),
 			0, strlen(logline), &regex_submatches) >= 0 ) {
@@ -243,12 +242,11 @@ process_logline()
                 PCRE2_ZERO_TERMINATED,
                 0,
                 0,
-                this_rule->match_data,
+                match_data,
                 NULL
              ) > 0) {
-            regex_submatches_num=
-                pcre2_get_ovector_count(this_rule->match_data);
-            ovector = pcre2_get_ovector_pointer(this_rule->match_data);
+            regex_submatches_num= pcre2_get_ovector_count(match_data);
+            ovector = pcre2_get_ovector_pointer(match_data);
             for (i = 0; i < regex_submatches_num && i < RE_NREGS; i++) {
                 regex_submatches.start[i] = ovector[2*i];
                 regex_submatches.end[i] = ovector[2*i+1];
@@ -261,7 +259,7 @@ process_logline()
                         PCRE2_ZERO_TERMINATED,
                         0,
                         0,
-                        this_rule->match_not_data,
+                        match_data,
                         NULL
                      ) <= 0) {
 #else
@@ -298,12 +296,11 @@ process_logline()
                     PCRE2_ZERO_TERMINATED,
                     0,
                     0,
-                    this_rule->stop_data,
+                    match_data,
                     NULL
                  ) > 0) {
-                regex_submatches_num=
-                    pcre2_get_ovector_count(this_rule->stop_data);
-                ovector = pcre2_get_ovector_pointer(this_rule->stop_data);
+                regex_submatches_num= pcre2_get_ovector_count(match_data);
+                ovector = pcre2_get_ovector_pointer(match_data);
                 for (i = 0; i < regex_submatches_num && i < RE_NREGS; i++) {
                     regex_submatches.start[i] = ovector[2*i];
                     regex_submatches.end[i] = ovector[2*i+1];
@@ -316,7 +313,7 @@ process_logline()
                             PCRE2_ZERO_TERMINATED,
                             0,
                             0,
-                            this_rule->stop_not_data,
+                            match_data,
                             NULL
                          ) <= 0) {
 #else
@@ -524,6 +521,14 @@ main(argc, argv)
 	re_syntax_options=RE_SYNTAX_POSIX_EGREP;
 #endif
 
+#ifdef WITH_PCRE
+    /*
+     * Create the match_data block, for use in all matches.
+     * Maximum number of submatches is RE_NREGS.
+     */
+    match_data = pcre2_match_data_create(RE_NREGS, NULL);
+#endif
+
 	/*
 	 * get memory to store the submatches for a regex-match
 	 */
@@ -721,11 +726,6 @@ main(argc, argv)
             );
             exit(5);
         }
-        pcre2_match_data *match_data;
-        match_data = pcre2_match_data_create_from_pattern(
-            pcre_start_regex,
-            NULL
-        );
 #else
         if ( (start_regex=(struct re_pattern_buffer *)
             malloc(sizeof(struct re_pattern_buffer))) == NULL ) {
@@ -769,8 +769,6 @@ main(argc, argv)
                 logline
             );
             if (rc > 0) {
-                fprintf(stderr, "got one\n");
-                pcre2_match_data_free(match_data);
                 pcre2_code_free(pcre_start_regex);
                 pcre_start_regex=NULL;
                 process_logline();

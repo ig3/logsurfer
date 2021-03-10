@@ -40,6 +40,8 @@ struct re_registers {
 };
 /* define posix regex RE_NREGS, as it is used through the code */
 #define RE_NREGS 30
+/* Required global so it can be freed on exit */
+pcre2_match_data *match_data;
 #else
 #include "regex.h"
 #endif

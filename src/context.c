@@ -85,11 +85,6 @@ create_context()
 	new_context->next=NULL;
 	new_context->previous=NULL;
 
-#ifdef WITH_PCRE
-  new_context->match_data=NULL;
-  new_context->match_not_data=NULL;
-#endif
-
 	return(new_context);
 }
 
@@ -159,13 +154,6 @@ open_context(context_def)
 		destroy_context(new_context);
 		return;
     }
-    new_context->match_data = pcre2_match_data_create_from_pattern(
-        new_context->match_regex, NULL);
-    if (new_context->match_data == NULL) {
-		(void) fprintf(stderr, "out of memory adding rule: %s\n", context_def);
-		destroy_context(new_context);
-		return;
-    }
 #else
 	/* get the match_regex */
 	if ( (new_context->match_regex=(struct re_pattern_buffer *)
@@ -217,13 +205,6 @@ open_context(context_def)
             );
             (void) fprintf(stderr, "in pattern %s at offset %lu: %s\n",
                 new_context->match_not_regex_str, erroroffset, buffer);
-            destroy_context(new_context);
-            return;
-        }
-        new_context->match_not_data = pcre2_match_data_create_from_pattern(
-            new_context->match_not_regex, NULL);
-        if (new_context->match_not_data == NULL) {
-            (void) fprintf(stderr, "out of memory adding rule: %s\n", context_def);
             destroy_context(new_context);
             return;
         }
@@ -431,15 +412,11 @@ destroy_context(this_context)
         (void) free(this_context->match_regex_str);
     if ( this_context->match_regex != NULL )
         pcre2_code_free(this_context->match_regex);
-    if ( this_context->match_data != NULL )
-        pcre2_match_data_free(this_context->match_data);
     /* match not */
     if ( this_context->match_not_regex_str != NULL )
         (void) free(this_context->match_not_regex_str);
     if ( this_context->match_not_regex != NULL )
         pcre2_code_free(this_context->match_not_regex);
-    if ( this_context->match_not_data != NULL )
-        pcre2_match_data_free(this_context->match_not_data);
 #else
 	if ( this_context->match_regex_str != NULL )
 		(void) free(this_context->match_regex_str);
