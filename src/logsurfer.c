@@ -82,10 +82,7 @@ int errno;
 
 #include "logsurfer.h"
 #include "globals.h"
-#ifdef WITH_PCRE
-#define PCRE2_CODE_UNIT_WIDTH 8
-#include "pcre2.h"
-#else
+#ifndef WITH_PCRE
 #include "regex.h"
 #endif
 #include "str_util.h"

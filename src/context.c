@@ -48,9 +48,7 @@ char *strchr();
 
 #include "logsurfer.h"
 #include "globals.h"
-#ifdef WITH_PCRE
-#include <pcre2.h>
-#else
+#ifndef WITH_PCRE
 #include "regex.h"
 #endif
 #include "str_util.h"

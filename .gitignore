@@ -1,1 +1,12 @@
 autom4te.cache/
+Makefile
+config.h
+config.log
+config.status
+man/Makefile
+man/logsurfer.1
+man/logsurfer.conf.4
+src/Makefile
+src/logsurfer
+stamp-h
+*.o
