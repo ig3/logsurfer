@@ -62,8 +62,11 @@ AS_IF([test "x$with_pcre" = "xyes"], [
   if test $a == 0
   then
     AC_DEFINE(WITH_PCRE, [1], [Build with PCRE support])
+    AC_SUBST(retype, ["pcre"])
+  else
+    AC_SUBST(retype, ["posix"])
   fi
-
-
+], [
+  AC_SUBST(retype, ["posix"])
 ])
 AC_OUTPUT(Makefile src/Makefile man/Makefile, echo timestamp > stamp-h)

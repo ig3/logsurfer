@@ -12,9 +12,13 @@ logsurfer.1: logsurfer.1.in
 	sed -e "s,@DUMPFILE@,$(DEF_DUMPFILE)," \
 	-e "s,@CONFFILE@,$(DEF_CONFFILE)," < logsurfer.1.in > logsurfer.1
 
-logsurfer.conf.4: logsurfer.conf.4.in
+#logsurfer.conf.4: logsurfer.conf.@retype@.4.in
+#	sed -e "s,@DUMPFILE@,$(DEF_DUMPFILE)," \
+#	-e "s,@CONFFILE@,$(DEF_CONFFILE)," < logsurfer.conf.4.in > logsurfer.conf.4
+
+logsurfer.conf.4: logsurfer.conf.@retype@.4.in
 	sed -e "s,@DUMPFILE@,$(DEF_DUMPFILE)," \
-	-e "s,@CONFFILE@,$(DEF_CONFFILE)," < logsurfer.conf.4.in > logsurfer.conf.4
+	-e "s,@CONFFILE@,$(DEF_CONFFILE)," < $< > $@
 
 install:
 	$(INSTALL_DATA) logsurfer.1 $(mandir)/man1/logsurfer.1

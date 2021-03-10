@@ -621,6 +621,8 @@ ac_includes_default="\
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+retype
+xxxtest
 etcdir
 ALLOCA
 EGREP
@@ -4213,8 +4215,22 @@ fi
 
 $as_echo "#define WITH_PCRE 1" >>confdefs.h
 
+    xxxtest="PCRE"
+
+    retype="pcre"
+
+  else
+    xxxtest="POSIX"
+
+    retype="posix"
+
   fi
 
+else
+
+  xxxtest="without pcre"
+
+  retype="posix"
 
 
 fi
