@@ -714,7 +714,7 @@ main(argc, argv)
             );
             (void) fprintf(
                 stderr,
-                "error in start-regex %s at offset %d: %s\n",
+                "error in start-regex %s at offset %lu: %s\n",
                 opt_r_value,
                 pcre_error_offset,
                 buffer

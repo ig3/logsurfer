@@ -266,7 +266,7 @@ parse_rule(input_line)
             buffer,
             sizeof(buffer)
         );
-        (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
+        (void) fprintf(stderr, "in pattern %s at offset %lu: %s\n",
             new_rule->match_regex_str, erroroffset, buffer);
 		destroy_rule(new_rule);
 		return(NULL);
@@ -325,7 +325,7 @@ parse_rule(input_line)
                 buffer,
                 sizeof(buffer)
             );
-            (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
+            (void) fprintf(stderr, "in pattern %s at offset %lu: %s\n",
                 new_rule->match_not_regex_str, erroroffset, buffer);
             destroy_rule(new_rule);
             return(NULL);
@@ -388,7 +388,7 @@ parse_rule(input_line)
                 buffer,
                 sizeof(buffer)
             );
-            (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
+            (void) fprintf(stderr, "in pattern %s at offset %lu: %s\n",
                 new_rule->stop_regex_str, erroroffset, buffer);
             destroy_rule(new_rule);
             return(NULL);
@@ -450,7 +450,7 @@ parse_rule(input_line)
                 buffer,
                 sizeof(buffer)
             );
-            (void) fprintf(stderr, "in pattern %s at offset %d: %s\n",
+            (void) fprintf(stderr, "in pattern %s at offset %lu: %s\n",
                 new_rule->stop_not_regex_str, erroroffset, buffer);
             destroy_rule(new_rule);
             return(NULL);
