@@ -174,6 +174,42 @@ silently without triggering their actions.
 When Logsurfer starts reading the log file this option will instruct it to
 seek to the end of the file before scanning starts. Without this option,
 Logsurfer will start scanning at the beginning of the file.
+.SH EXIT CODES
+.PD 0
+.TP 32
+.B 0
+Normal exit.
+.TP
+.B 1
+Usage message was displayed.
+.TP
+.B 2
+Error reading config file.
+.TP
+.B 5
+Error in regex.
+.TP
+.B 6
+Error opening or reopening or stating the logfile.
+Error setting session ID when daemonizing.
+Attempt to daemonize when reading from stdin.
+.TP
+.B 7
+End of file without matching the start regex (option -s) or error scanning
+for a match on the start regex.
+.TP
+.B 8
+Error setting signal handlers.
+.TP
+.B 9
+Error opening pid file.
+.TP
+.B 11
+Error while daemonizing (e.g. fork failed, opening /dev/null failed, etc.)
+.TP
+.B 99
+Error allocating memory.
+.PD
 .SH "FILES"
 .PD 0
 .TP 32
