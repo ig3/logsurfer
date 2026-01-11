@@ -201,8 +201,18 @@ process_logline()
 	for ( this_context=all_contexts; this_context != NULL;
 		this_context=this_context->next) {
 #ifdef WITH_PCRE
-        if (pcre2_match(this_context->match_regex, (PCRE2_SPTR)logline,
-                PCRE2_ZERO_TERMINATED, 0, 0, match_data, NULL) > 0) {
+        int rc = pcre2_match(this_context->match_regex, (PCRE2_SPTR)logline,
+                PCRE2_ZERO_TERMINATED, 0, 0, match_data, NULL);
+        if (rc < 0 && rc != PCRE2_ERROR_NOMATCH) {
+            PCRE2_UCHAR buffer[256];
+            pcre2_get_error_message(rc, buffer, sizeof(buffer));
+            (void) fprintf(stderr,
+                "match regex match failed with: %s\n", buffer);
+            exit(5);
+        } else if (rc == 0) {
+            (void) fprintf(stderr, "too many capture groups in match regex\n");
+            exit(5);
+        } else if (rc > 0) {
             regex_submatches_num=pcre2_get_ovector_count(match_data);
             ovector = pcre2_get_ovector_pointer(match_data);
             for (i = 0; i < regex_submatches_num && i < RE_NREGS; i++) {
@@ -210,9 +220,26 @@ process_logline()
                 regex_submatches.end[i] = ovector[2*i+1];
             }
             if ( this_context->match_not_regex != NULL) {
-                if (pcre2_match(this_context->match_not_regex,
+                int rc = pcre2_match(this_context->match_not_regex,
                     (PCRE2_SPTR)logline, PCRE2_ZERO_TERMINATED,
-                    0, 0, match_data, NULL) <= 0) {
+                    0, 0, match_data, NULL);
+                if (rc == PCRE2_ERROR_NOMATCH) {
+                    add_to_context(this_context, logline_context);
+                } else if (rc == 0) {
+                    (void) fprintf(stderr,
+                        "too many capture groups in match regex\n");
+                    exit(5);
+                } else if (rc < 0) {
+                    PCRE2_UCHAR buffer[256];
+                    pcre2_get_error_message(rc, buffer, sizeof(buffer));
+                    (void) fprintf(stderr,
+                        "not match regex match failed with: %s\n", buffer);
+                    exit(5);
+                }
+			}
+			else
+				add_to_context(this_context, logline_context);
+		}
 #else
 		if ( re_search(this_context->match_regex, logline, strlen(logline),
 			0, strlen(logline), &regex_submatches) >= 0 ) {
@@ -221,30 +248,34 @@ process_logline()
 				if ( re_search(this_context->match_not_regex, logline,
 					strlen(logline), 0, strlen(logline),
 					&regex_notmatches) == -1 ) {
-#endif
 						add_to_context(this_context, logline_context);
 				}
 			}
 			else
 				add_to_context(this_context, logline_context);
 		}
+#endif
     }
 
 	/*
 	 * now check if there is a matching rule for this logline
 	 */
 	for ( this_rule=all_rules; this_rule != NULL ; ) {
-		/* check if the logline matches the first rgex */
 #ifdef WITH_PCRE
-        if ( pcre2_match(
-                this_rule->match_regex,
-                (PCRE2_SPTR)logline,
-                PCRE2_ZERO_TERMINATED,
-                0,
-                0,
-                match_data,
-                NULL
-             ) > 0) {
+		/* check if the logline matches the first rgex */
+        int rc = pcre2_match(this_rule->match_regex, (PCRE2_SPTR)logline,
+            PCRE2_ZERO_TERMINATED, 0, 0, match_data, NULL);
+        if (rc == 0) {
+            (void) fprintf(stderr, "too many capture groups in start regex\n");
+            exit(5);
+        } else if (rc < 0 && rc != PCRE2_ERROR_NOMATCH) {
+            PCRE2_UCHAR buffer[256];
+            pcre2_get_error_message(rc, buffer, sizeof(buffer));
+            (void) fprintf(stderr,
+                "match regex match failed with: %s\n", buffer);
+            exit(5);
+        } else if (rc > 0) {
+            /* logline matched the match regex - save capture groups */
             regex_submatches_num= pcre2_get_ovector_count(match_data);
             ovector = pcre2_get_ovector_pointer(match_data);
             for (i = 0; i < regex_submatches_num && i < RE_NREGS; i++) {
@@ -252,17 +283,92 @@ process_logline()
                 regex_submatches.end[i] = ovector[2*i+1];
             }
             this_rule_next=this_rule->next;
+            /* check if the logline matches the second rgex */
             if (this_rule->match_not_regex != NULL) {
-                if ( pcre2_match(
-                        this_rule->match_not_regex,
-                        (PCRE2_SPTR)logline,
-                        PCRE2_ZERO_TERMINATED,
-                        0,
-                        0,
-                        match_data,
-                        NULL
-                     ) <= 0) {
+                int rc = pcre2_match(this_rule->match_not_regex,
+                    (PCRE2_SPTR)logline, PCRE2_ZERO_TERMINATED, 0, 0,
+                    match_data, NULL);
+                if (rc == 0) {
+                    (void) fprintf(stderr,
+                        "too many capture groups in start regex\n");
+                    exit(5);
+                } else if (rc < 0 && rc != PCRE2_ERROR_NOMATCH) {
+                    PCRE2_UCHAR buffer[256];
+                    pcre2_get_error_message(rc, buffer, sizeof(buffer));
+                    (void) fprintf(stderr,
+                        "match regex match failed with: %s\n", buffer);
+                    exit(5);
+                } else if (rc == PCRE2_ERROR_NOMATCH) {
+                    check_stop=1;
+                    if ( this_rule->do_continue == 0 )
+                        this_rule_next=NULL;
+                    process_rule(this_rule);
+				}
+			} else {
+				check_stop=1;
+				if ( this_rule->do_continue == 0 )
+					this_rule_next=NULL;
+				process_rule(this_rule);
+			}
+			if ( check_stop == 1 ) {
+				/* check for the stop_regex */
+				if ( this_rule->stop_regex != NULL ) {
+                    int rc = pcre2_match(this_rule->stop_regex,
+                        (PCRE2_SPTR)logline, PCRE2_ZERO_TERMINATED,
+                        0, 0, match_data, NULL);
+                    if (rc == 0) {
+                        (void) fprintf(stderr,
+                            "too many capture groups in start regex\n");
+                        exit(5);
+                    } else if (rc < 0 && rc != PCRE2_ERROR_NOMATCH) {
+                        PCRE2_UCHAR buffer[256];
+                        pcre2_get_error_message(rc, buffer, sizeof(buffer));
+                        (void) fprintf(stderr,
+                            "match regex match failed with: %s\n", buffer);
+                        exit(5);
+                    } else if (rc > 0) {
+                        regex_submatches_num =
+                            pcre2_get_ovector_count(match_data);
+                        ovector = pcre2_get_ovector_pointer(match_data);
+                        for (
+                            i = 0;
+                            i < regex_submatches_num && i < RE_NREGS;
+                            i++
+                        ) {
+                            regex_submatches.start[i] = ovector[2*i];
+                            regex_submatches.end[i] = ovector[2*i+1];
+                        }
+                        this_rule_next=this_rule->next;
+                        if (this_rule->stop_not_regex != NULL) {
+                            int rc = pcre2_match(this_rule->stop_not_regex,
+                                (PCRE2_SPTR)logline, PCRE2_ZERO_TERMINATED,
+                                0, 0, match_data, NULL);
+                            if (rc == 0) {
+                                (void) fprintf(stderr,
+                                    "too many capture groups in start regex\n");
+                                exit(5);
+                            } else if (rc < 0 && rc != PCRE2_ERROR_NOMATCH) {
+                                PCRE2_UCHAR buffer[256];
+                                pcre2_get_error_message(rc, buffer, sizeof(buffer));
+                                (void) fprintf(stderr,
+                                    "match regex match failed with: %s\n", buffer);
+                                exit(5);
+                            } else if (rc == PCRE2_ERROR_NOMATCH) {
+                                unlink_rule(this_rule);
+                            }
+                        }
+                        else
+                            unlink_rule(this_rule);
+                    }
+				}
+				check_stop=0;
+			}
+			this_rule=this_rule_next;
+		}
+		else
+			this_rule=this_rule->next;
 #else
+		/* check if the logline matches the first rgex */
         if ( re_search(this_rule->match_regex, logline, strlen(logline),
 			0, strlen(logline), &regex_submatches) >= 0 ) {
 			regex_submatches_num=this_rule->match_regex->re_nsub;
@@ -272,7 +378,6 @@ process_logline()
 				if ( re_search(this_rule->match_not_regex, logline,
 					strlen(logline), 0, strlen(logline),
 					&regex_notmatches) == -1 ) {
-#endif
 						check_stop=1;
 						if ( this_rule->do_continue == 0 )
 							this_rule_next=NULL;
@@ -289,34 +394,6 @@ process_logline()
 				/* check for the stop_regex */
 				if ( this_rule->stop_regex != NULL ) {
 
-#ifdef WITH_PCRE
-            if ( pcre2_match(
-                    this_rule->stop_regex,
-                    (PCRE2_SPTR)logline,
-                    PCRE2_ZERO_TERMINATED,
-                    0,
-                    0,
-                    match_data,
-                    NULL
-                 ) > 0) {
-                regex_submatches_num= pcre2_get_ovector_count(match_data);
-                ovector = pcre2_get_ovector_pointer(match_data);
-                for (i = 0; i < regex_submatches_num && i < RE_NREGS; i++) {
-                    regex_submatches.start[i] = ovector[2*i];
-                    regex_submatches.end[i] = ovector[2*i+1];
-                }
-                this_rule_next=this_rule->next;
-                if (this_rule->stop_not_regex != NULL) {
-                    if ( pcre2_match(
-                            this_rule->stop_not_regex,
-                            (PCRE2_SPTR)logline,
-                            PCRE2_ZERO_TERMINATED,
-                            0,
-                            0,
-                            match_data,
-                            NULL
-                         ) <= 0) {
-#else
 			if ( re_search(this_rule->stop_regex, logline, strlen(logline),
 				0, strlen(logline), &regex_submatches) >= 0 ) {
 				/* if we do have a not-match stop-regex test it */
@@ -324,7 +401,6 @@ process_logline()
 					if ( re_search(this_rule->stop_not_regex,
 						logline, strlen(logline), 0,
 						strlen(logline), &regex_notmatches) == -1 ) {
-#endif
 						unlink_rule(this_rule);
                     }
 				}
@@ -339,6 +415,7 @@ process_logline()
 		}
 		else
 			this_rule=this_rule->next;
+#endif
 	}
 
 	logline_context->link_counter--;
@@ -768,6 +845,16 @@ main(argc, argv)
                 pcre_start_regex=NULL;
                 process_logline();
                 break;
+            } else if (rc == 0) {
+                (void) fprintf(stderr,
+                    "too many capture groups in start regex\n");
+                exit(5);
+            } else if (rc != PCRE2_ERROR_NOMATCH) {
+                PCRE2_UCHAR buffer[256];
+                pcre2_get_error_message(rc, buffer, sizeof(buffer));
+                (void) fprintf(stderr,
+                    "start regex match failed with: %s\n", buffer);
+                exit(5);
             }
 #else
             if ( re_search(start_regex, logline, strlen(logline), 0,
