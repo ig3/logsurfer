@@ -11,3 +11,4 @@ src/Makefile
 src/logsurfer
 stamp-h
 *.o
+*.swp
